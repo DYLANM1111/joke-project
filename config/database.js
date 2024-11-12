@@ -1,6 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
+const isProduction = process.env.NODE_ENV === 'production';
+const dbPath = isProduction ? ':memory:' : path.join(__dirname, '../jokebook.db');
 const db = new sqlite3.Database('jokebook.db', (err) => {
     if (err) {
         console.error('Error connecting to database:', err);
