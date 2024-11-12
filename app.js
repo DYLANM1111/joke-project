@@ -1,8 +1,7 @@
 const express = require('express');
 const path = require('path');
-const JokeModel = require('./models/jokeModel'); // Add this import
 const app = express();
-const port = 3000;
+const JokeModel = require('./models/jokeModel');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -12,33 +11,33 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 const jokeRoutes = require('./routes/jokeRoutes');
+
 app.use('/jokebook', jokeRoutes);
 
 app.get('/', async (req, res) => {
     try {
         const joke = await JokeModel.getRandomJoke();
-        res.render('index', { 
-            page: 'home', 
-            joke: joke || null 
-        });
+        res.render('index', { page: 'home', joke });
     } catch (error) {
-        console.error('Error fetching random joke:', error);
-        res.render('index', { 
-            page: 'home', 
-            joke: null 
-        });
+        console.error('Error:', error);
+        res.render('index', { page: 'home', joke: null });
     }
 });
 
 app.use((err, req, res, next) => {
-    console.error('Server error:', err.stack);
+    console.error(err.stack);
     res.status(500).render('index', { 
         page: 'error', 
         message: 'Something went wrong!' 
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-    console.log(`Visit http://localhost:${port} to see the application`);
-});
+module.exports = app;
+
+// Only listen in development
+if (process.env.NODE_ENV !== 'production') {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+}
