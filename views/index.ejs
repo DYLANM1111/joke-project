@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jokebook</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <div class="nav">
+        <a href="/">Home</a>
+        <a href="/jokebook/categories">Categories</a>
+        <a href="/jokebook/joke/new">Add New Joke</a>
+    </div>
+
+    <div class="container">
+        <% if (page === 'home') { %>
+            <h1>Welcome to Jokebook!</h1>
+            <% if (joke) { %>
+                <div class="joke">
+                    <p><strong>Setup:</strong> <span id="jokeSetup"><%= joke.setup %></span></p>
+                    <p><strong>Delivery:</strong> <span id="jokeDelivery"><%= joke.delivery %></span></p>
+                </div>
+                <button onclick="getNewRandomJoke()" class="btn">Get Another Joke</button>
+            <% } else { %>
+                <p>No jokes available at the moment.</p>
+            <% } %>
+
+        <% } else if (page === 'categories') { %>
+            <h1>Joke Categories</h1>
+            <div class="search-section">
+                <form class="search-form" onsubmit="searchCategory(event)">
+                    <input type="text" id="categorySearch" placeholder="Search or enter new category..." required>
+                    <button type="submit" class="btn">Search</button>
+                </form>
+            </div>
+
+            <div class="categories-list">
+                <% if (locals.categories && categories.length > 0) { %>
+                    <h2>Available Categories:</h2>
+                    <div class="category-grid">
+                        <% categories.forEach(function(category) { %>
+                            <div class="category-card" onclick="showJokesInCategory('<%= category %>')">
+                                <h3><%= category %></h3>
+                            </div>
+                        <% }); %>
+                    </div>
+                <% } %>
+            </div>
+
+        <% } else if (page === 'categoryJokes') { %>
+            <h1>Jokes in <%= category %></h1>
+            <div id="jokesList">
+                <% if (locals.jokes && jokes.length > 0) { %>
+                    <% jokes.forEach(function(joke) { %>
+                        <div class="joke-card">
+                            <p class="setup"><strong>Setup:</strong> <%= joke.setup %></p>
+                            <p class="delivery"><strong>Delivery:</strong> <%= joke.delivery %></p>
+                        </div>
+                    <% }); %>
+                <% } else { %>
+                    <p>No jokes found in this category.</p>
+                    <div id="externalSearch">
+                        <p>Would you like to search for jokes from an external source?</p>
+                        <button onclick="searchExternalJokes('<%= category %>')" class="btn">Search External API</button>
+                    </div>
+                <% } %>
+            </div>
+
+        <% } else if (page === 'newJoke') { %>
+            <h1>Add New Joke</h1>
+            <div id="messageArea">
+                <div id="error" class="error"></div>
+                <div id="success" class="success"></div>
+            </div>
+            
+            <form id="newJokeForm" class="joke-form" onsubmit="submitNewJoke(event)">
+                <div class="form-group">
+                    <label for="category">Category:</label>
+                    <input type="text" id="category" required>
+                </div>
+                <div class="form-group">
+                    <label for="setup">Setup:</label>
+                    <textarea id="setup" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="delivery">Delivery:</label>
+                    <textarea id="delivery" required></textarea>
+                </div>
+                <button type="submit" class="btn">Add Joke</button>
+            </form>
+        <% } %>
+    </div>
+
+    <script>
+        async function getNewRandomJoke() {
+            try {
+                const response = await fetch('/api/random-joke');
+                if (!response.ok) throw new Error('Failed to fetch joke');
+                const joke = await response.json();
+                
+                document.getElementById('jokeSetup').textContent = joke.setup;
+                document.getElementById('jokeDelivery').textContent = joke.delivery;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function searchCategory(event) {
+            event.preventDefault();
+            const category = document.getElementById('categorySearch').value.trim();
+            if (category) {
+                window.location.href = `/jokebook/joke/${encodeURIComponent(category)}`;
+            }
+        }
+
+        function showJokesInCategory(category) {
+            window.location.href = `/jokebook/joke/${encodeURIComponent(category)}`;
+        }
+
+        async function searchExternalJokes(category) {
+            try {
+                const response = await fetch(`/jokebook/external/${encodeURIComponent(category)}`);
+                if (!response.ok) throw new Error('Failed to fetch external jokes');
+                const jokes = await response.json();
+                
+                if (jokes && jokes.length > 0) {
+                    const jokesList = document.getElementById('jokesList');
+                    jokesList.innerHTML = jokes.map(joke => `
+                        <div class="joke-card">
+                            <p class="setup"><strong>Setup:</strong> ${joke.setup}</p>
+                            <p class="delivery"><strong>Delivery:</strong> ${joke.delivery}</p>
+                        </div>
+                    `).join('');
+                    document.getElementById('externalSearch')?.remove();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        async function submitNewJoke(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            const formData = {
+                category: document.getElementById('category').value.trim(),
+                setup: document.getElementById('setup').value.trim(),
+                delivery: document.getElementById('delivery').value.trim()
+            };
+
+            try {
+                const response = await fetch('/jokebook/joke/new', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    successDiv.textContent = 'Joke added successfully!';
+                    successDiv.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = `/jokebook/joke/${encodeURIComponent(formData.category)}`;
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = data.error || 'Failed to add joke';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
